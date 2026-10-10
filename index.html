@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>線上點餐</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
+<style>
+/* ==========================================
+   🎨 外觀設定（顏色可在這裡統一調整）
+   ========================================== */
+:root {
+  --bg: #f6f1e9;          /* 背景：奶茶米 */
+  --card: #fffdf9;        /* 卡片底色 */
+  --ink: #2e2219;         /* 主要文字：深焙茶色 */
+  --muted: #8a7a6b;       /* 次要文字 */
+  --line: #e6dccd;        /* 分隔線 */
+  --brand: #5b3a24;       /* 品牌主色：紅茶褐 */
+  --accent: #c8792f;      /* 強調色：焦糖 */
+  --cold: #3d7ea6;        /* 限冷飲標籤 */
+  --ok: #3f7d4e;
+  --danger: #b23a2e;
+  --radius: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+  padding-bottom: 96px; /* 留空間給底部購物車列 */
+}
+button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+input, textarea { font: inherit; color: inherit; }
+
+/* ---------- 頁首 ---------- */
+header {
+  background: var(--brand);
+  color: #fff;
+  padding: 28px 16px 22px;
+}
+.wrap { max-width: 760px; margin: 0 auto; }
+header h1 {
+  font-family: "Noto Serif TC", serif;
+  font-size: 28px;
+  letter-spacing: 2px;
+}
+header p { opacity: .8; font-size: 14px; margin-top: 4px; }
+
+/* ---------- 類別分頁 ---------- */
+.tabs {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.tabs .wrap {
+  display: flex; gap: 8px;
+  overflow-x: auto; padding: 12px 16px;
+  scrollbar-width: none;
+}
+.tabs .wrap::-webkit-scrollbar { display: none; }
+.tab {
+  flex: none;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  font-weight: 500; font-size: 15px;
+  white-space: nowrap;
+}
+.tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+/* ---------- 產品列表 ---------- */
+main { padding: 8px 16px 24px; }
+.section-title {
+  font-family: "Noto Serif TC", serif;
+  font-size: 20px;
+  margin: 22px 0 10px;
+  scroll-margin-top: 70px;
+}
+.grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 600px) { .grid { grid-template-columns: 1fr 1fr; } }
+.item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; text-align: left;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 14px 14px 16px;
+  transition: border-color .15s, transform .1s;
+}
+.item:hover { border-color: var(--accent); }
+.item:active { transform: scale(.98); }
+.item-name { font-weight: 700; font-size: 16px; }
+.item-price { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.tag {
+  display: inline-block; font-size: 12px; font-weight: 500;
+  padding: 1px 8px; border-radius: 999px; margin-left: 6px;
+  vertical-align: 2px;
+}
+.tag.cold { background: #e3eef5; color: var(--cold); }
+.tag.season { background: #f8e9d8; color: var(--accent); }
+.add-btn {
+  flex: none;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--brand); color: #fff;
+  font-size: 22px; line-height: 36px; text-align: center;
+}
+
+/* ---------- 載入 / 錯誤狀態 ---------- */
+.state { text-align: center; padding: 60px 16px; color: var(--muted); }
+.spinner {
+  width: 36px; height: 36px; margin: 0 auto 14px;
+  border: 3px solid var(--line); border-top-color: var(--brand);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn-primary {
+  display: block; width: 100%;
+  background: var(--brand); color: #fff;
+  border-radius: 12px; padding: 14px;
+  font-weight: 700; font-size: 16px;
+}
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-ghost {
+  display: inline-block; margin-top: 14px;
+  padding: 10px 20px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card);
+}
+
+/* ---------- 底部購物車列 ---------- */
+.cart-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 16px rgba(46,34,25,.08);
+  transform: translateY(110%);
+  transition: transform .25s ease;
+}
+.cart-bar.show { transform: translateY(0); }
+.cart-bar .wrap { display: flex; align-items: center; gap: 12px; }
+.cart-sum { flex: 1; }
+.cart-sum b { font-size: 20px; }
+.cart-sum span { color: var(--muted); font-size: 14px; margin-left: 6px; }
+.cart-bar .btn-primary { width: auto; padding: 12px 24px; }
+
+/* ---------- 彈出視窗（選規格 / 購物車） ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 30;
+  background: rgba(46,34,25,.45);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.overlay.open { opacity: 1; pointer-events: auto; }
+.sheet {
+  width: 100%; max-width: 560px; max-height: 90vh;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  display: flex; flex-direction: column;
+  transform: translateY(30px); transition: transform .2s;
+}
+.overlay.open .sheet { transform: translateY(0); }
+@media (min-width: 600px) {
+  .overlay { align-items: center; }
+  .sheet { border-radius: 20px; }
+}
+.sheet-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 20px 20px 12px;
+}
+.sheet-head h2 { font-family: "Noto Serif TC", serif; font-size: 22px; }
+.sheet-head .sub { color: var(--muted); font-size: 14px; }
+.close {
+  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--line); font-size: 18px; line-height: 34px; text-align: center;
+}
+.sheet-body { overflow-y: auto; padding: 0 20px 8px; }
+.sheet-foot {
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+
+.opt-group { margin: 14px 0 6px; }
+.opt-label { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+.opt-label small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 8px 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card);
+  font-size: 15px;
+}
+.chip.on { border-color: var(--brand); background: var(--brand); color: #fff; }
+.chip small { opacity: .75; margin-left: 4px; }
+
+.qty { display: flex; align-items: center; gap: 4px; }
+.qty button {
+  width: 36px; height: 36px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card); font-size: 20px;
+}
+.qty output { min-width: 40px; text-align: center; font-weight: 700; font-size: 18px; }
+.foot-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.foot-row .btn-primary { width: auto; flex: 1; }
+
+/* 購物車明細 */
+.line {
+  display: flex; gap: 10px; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.line-info { flex: 1; min-width: 0; }
+.line-name { font-weight: 700; }
+.line-opt { color: var(--muted); font-size: 13px; }
+.line-price { font-weight: 700; min-width: 56px; text-align: right; }
+.line .qty button { width: 30px; height: 30px; font-size: 16px; border-radius: 8px; }
+.line .qty output { min-width: 28px; font-size: 15px; }
+.total-row {
+  display: flex; justify-content: space-between;
+  padding: 14px 0 4px; font-size: 18px; font-weight: 700;
+}
+
+.form { margin-top: 16px; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+.field label small { color: var(--muted); font-weight: 400; }
+.field input {
+  width: 100%; padding: 12px; font-size: 16px; /* 16px 避免 iPhone 自動放大 */
+  border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+}
+.field input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.field .err { color: var(--danger); font-size: 13px; margin-top: 4px; display: none; }
+.field.invalid input { border-color: var(--danger); }
+.field.invalid .err { display: block; }
+.submit-msg { color: var(--danger); font-size: 14px; margin-bottom: 10px; display: none; }
+
+/* 完成畫面 */
+.done { text-align: center; padding: 28px 8px 8px; }
+.done .check {
+  width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 14px;
+  background: var(--ok); color: #fff; font-size: 34px; line-height: 64px;
+}
+.done h2 { font-family: "Noto Serif TC", serif; font-size: 24px; }
+.order-no {
+  display: inline-block; margin: 14px 0 6px;
+  padding: 10px 18px; border-radius: 10px;
+  background: var(--card); border: 1px dashed var(--accent);
+  font-size: 20px; font-weight: 700; letter-spacing: 1px;
+}
+.done p { color: var(--muted); font-size: 14px; }
+.done .check { display: flex; align-items: center; justify-content: center; }
+.done .thanks { color: var(--accent); font-size: 17px; font-weight: 700; margin-top: 6px; }
+.done-actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
+.done-actions button { flex: 1; max-width: 160px; margin: 0; padding: 12px 0; font-size: 16px; }
+.goodbye { text-align: center; padding: 120px 16px; }
+.goodbye h2 { font-family: "Noto Serif TC", serif; font-size: 28px; margin-bottom: 10px; }
+.goodbye p { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>今日飲品</h1>
+    <p>線上點餐・到店取飲</p>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" hidden><div class="wrap" id="tabList"></div></nav>
+
+<main class="wrap" id="menu">
+  <div class="state">
+    <div class="spinner"></div>
+    菜單載入中…
+  </div>
+</main>
+
+<!-- 底部購物車列 -->
+<div class="cart-bar" id="cartBar">
+  <div class="wrap">
+    <div class="cart-sum"><b id="barTotal">$0</b><span id="barCount">0 杯</span></div>
+    <button class="btn-primary" id="openCart">查看購物車</button>
+  </div>
+</div>
+
+<!-- 選規格視窗 -->
+<div class="overlay" id="optOverlay">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="optTitle">
+    <div class="sheet-head">
+      <div>
+        <h2 id="optTitle"></h2>
+        <div class="sub" id="optSub"></div>
+      </div>
+      <button class="close" data-close="optOverlay" aria-label="關閉">✕</button>
+    </div>
+    <div class="sheet-body" id="optBody"></div>
+    <div class="sheet-foot">
+      <div class="foot-row">
+        <div class="qty">
+          <button type="button" id="qtyMinus" aria-label="減少">−</button>
+          <output id="qtyVal">1</output>
+          <button type="button" id="qtyPlus" aria-label="增加">+</button>
+        </div>
+        <button class="btn-primary" id="addToCart">加入購物車</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 購物車視窗 -->
+<div class="overlay" id="cartOverlay">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+    <div class="sheet-head">
+      <h2 id="cartTitle">購物車</h2>
+      <button class="close" data-close="cartOverlay" aria-label="關閉">✕</button>
+    </div>
+    <div class="sheet-body" id="cartBody"></div>
+    <div class="sheet-foot" id="cartFoot">
+      <div class="submit-msg" id="submitMsg"></div>
+      <button class="btn-primary" id="submitOrder">送出訂單</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================
+// ⚙️ 設定區：Apps Script 網頁應用程式網址
+// （GET 讀取產品、POST 送出訂單，都是這個網址）
+// ==========================================
+const API_URL = "https://script.google.com/macros/s/AKfycbxMpAKZEbzDu93NKwDyUWKhN7PvO7TXNIXw2lfjbnpjBIX0mbUzCp8KTFx2VugxWS24/exec";
+
+// 甜度與冰量選項
+const SUGAR_OPTIONS = ["正常糖", "少糖", "半糖", "微糖", "無糖"];
+const COLD_OPTIONS  = ["正常冰", "少冰", "微冰", "去冰"];
+const HOT_OPTIONS   = ["溫", "熱"];   // 「限冷飲」的品項不會出現這兩個
+
+// ==========================================
+// 📦 程式狀態
+// ==========================================
+let products = [];   // 從試算表讀進來的產品
+let cart = [];       // 購物車：[{ key, itemName, size, sugarLevel, unitPrice, quantity }]
+let current = null;  // 正在選規格的產品與選項
+
+const $ = (id) => document.getElementById(id);
+
+// 把試算表的文字安全地放進 HTML（避免特殊符號破壞畫面）
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ==========================================
+// 📥 1. 讀取產品清單（GET）
+// ==========================================
+async function loadProducts() {
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    if (data.status !== "success") throw new Error("回傳狀態不是 success");
+    products = data.products.filter((p) => p["飲品名稱"]);
+    renderMenu();
+  } catch (err) {
+    console.error(err);
+    $("menu").innerHTML = `
+      <div class="state">
+        菜單載入失敗，請檢查網路後再試一次。
+        <br><button class="btn-ghost" onclick="location.reload()">重新載入</button>
+      </div>`;
+  }
+}
+
+// 品名若是「波霸紅 / 綠」這種寫法，拆成「波霸紅」「波霸綠」兩個口味讓客人選
+function getVariants(name) {
+  const parts = name.split("/").map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2) return [name];
+  const first = parts[0];
+  return parts.map((p, i) => {
+    if (i === 0) return first;
+    // 只寫一個字（如「綠」）→ 換掉第一個名稱的最後一個字
+    return p.length === 1 ? first.slice(0, -1) + p : p;
+  });
+}
+
+// ==========================================
+// 🖼️ 2. 畫出菜單
+// ==========================================
+function renderMenu() {
+  // 依「類別」分組，保留試算表裡的順序
+  const groups = {};
+  products.forEach((p) => {
+    const cat = p["類別"] || "其他";
+    (groups[cat] = groups[cat] || []).push(p);
+  });
+  const cats = Object.keys(groups);
+
+  $("tabList").innerHTML = cats.map((c, i) =>
+    `<button class="tab${i === 0 ? " active" : ""}" data-cat="${i}">${esc(c)}</button>`).join("");
+  $("tabs").hidden = false;
+
+  $("menu").innerHTML = cats.map((c, i) => `
+    <h2 class="section-title" id="cat-${i}">${esc(c)}</h2>
+    <div class="grid">
+      ${groups[c].map((p) => {
+        const name = p["飲品名稱"];
+        const coldOnly = p["Type"] === "限冷飲";
+        const season = name.includes("季節限定");
+        const shown = name.replace(/（季節限定）|\(季節限定\)/, "");
+        return `
+          <button class="item" data-id="${esc(p["產品編號"])}">
+            <div>
+              <div class="item-name">${esc(shown)}${coldOnly ? '<span class="tag cold">限冷飲</span>' : ""}${season ? '<span class="tag season">季節限定</span>' : ""}</div>
+              <div class="item-price">中 $${esc(p["中杯價格"])}　大 $${esc(p["大杯價格"])}</div>
+            </div>
+            <span class="add-btn" aria-hidden="true">+</span>
+          </button>`;
+      }).join("")}
+    </div>`).join("");
+
+  // 點產品 → 開啟選規格視窗
+  $("menu").querySelectorAll(".item").forEach((el) => {
+    el.addEventListener("click", () => {
+      const p = products.find((x) => String(x["產品編號"]) === el.dataset.id);
+      openOptions(p);
+    });
+  });
+
+  // 點分頁 → 捲到該類別
+  $("tabList").querySelectorAll(".tab").forEach((t) => {
+    t.addEventListener("click", () => {
+      $("cat-" + t.dataset.cat).scrollIntoView({ behavior: "smooth" });
+      setActiveTab(t.dataset.cat);
+    });
+  });
+
+  // 捲動時自動切換分頁亮起的位置
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) setActiveTab(e.target.id.replace("cat-", ""));
+    });
+  }, { rootMargin: "-70px 0px -70% 0px" });
+  cats.forEach((_, i) => observer.observe($("cat-" + i)));
+}
+
+function setActiveTab(i) {
+  $("tabList").querySelectorAll(".tab").forEach((t) => {
+    const on = t.dataset.cat === String(i);
+    t.classList.toggle("active", on);
+    if (on) t.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
+}
+
+// ==========================================
+// 🧋 3. 選規格（口味、大小、甜度、冰量、數量）
+// ==========================================
+function openOptions(p) {
+  const variants = getVariants(p["飲品名稱"]);
+  const coldOnly = p["Type"] === "限冷飲";
+  current = {
+    product: p,
+    variants,
+    iceOptions: coldOnly ? COLD_OPTIONS : COLD_OPTIONS.concat(HOT_OPTIONS),
+    variant: variants[0],
+    size: "中杯",
+    sugar: "正常糖",
+    ice: "正常冰",
+    qty: 1,
+  };
+  $("optTitle").textContent = p["飲品名稱"];
+  $("optSub").textContent = coldOnly ? "此品項限冷飲" : "冷熱皆可";
+  renderOptions();
+  openOverlay("optOverlay");
+}
+
+function chipGroup(label, key, options, hint) {
+  return `
+    <div class="opt-group">
+      <div class="opt-label">${label}${hint ? `<small>${hint}</small>` : ""}</div>
+      <div class="chips">
+        ${options.map((o) => {
+          const val = typeof o === "string" ? o : o.value;
+          const text = typeof o === "string" ? esc(o) : o.html;
+          return `<button type="button" class="chip${current[key] === val ? " on" : ""}" data-key="${key}" data-val="${esc(val)}">${text}</button>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+
+function renderOptions() {
+  const p = current.product;
+  let html = "";
+  if (current.variants.length > 1) html += chipGroup("口味", "variant", current.variants, "請選一種");
+  html += chipGroup("容量", "size", [
+    { value: "中杯", html: `中杯<small>$${esc(p["中杯價格"])}</small>` },
+    { value: "大杯", html: `大杯<small>$${esc(p["大杯價格"])}</small>` },
+  ]);
+  html += chipGroup("甜度", "sugar", SUGAR_OPTIONS);
+  html += chipGroup("冰量", "ice", current.iceOptions);
+  $("optBody").innerHTML = html;
+
+  $("optBody").querySelectorAll(".chip").forEach((c) => {
+    c.addEventListener("click", () => {
+      current[c.dataset.key] = c.dataset.val;
+      renderOptions();
+    });
+  });
+  updateOptionFooter();
+}
+
+function unitPriceOf(p, size) {
+  return Number(size === "大杯" ? p["大杯價格"] : p["中杯價格"]);
+}
+
+function updateOptionFooter() {
+  $("qtyVal").textContent = current.qty;
+  const total = unitPriceOf(current.product, current.size) * current.qty;
+  $("addToCart").textContent = `加入購物車　$${total}`;
+}
+
+$("qtyMinus").addEventListener("click", () => { if (current.qty > 1) { current.qty--; updateOptionFooter(); } });
+$("qtyPlus").addEventListener("click", () => { if (current.qty < 99) { current.qty++; updateOptionFooter(); } });
+
+$("addToCart").addEventListener("click", () => {
+  const p = current.product;
+  // 後端目前只有「甜度」一欄，所以把甜度與冰量合併寫入，例如「半糖・少冰」
+  const sugarLevel = `${current.sugar}・${current.ice}`;
+  const key = [current.variant, current.size, sugarLevel].join("|");
+  const same = cart.find((c) => c.key === key);
+  if (same) {
+    same.quantity += current.qty;   // 相同規格就合併數量
+  } else {
+    cart.push({
+      key,
+      itemName: current.variant,
+      size: current.size,
+      sugarLevel,
+      unitPrice: unitPriceOf(p, current.size),
+      quantity: current.qty,
+    });
+  }
+  closeOverlay("optOverlay");
+  updateCartBar();
+});
+
+// ==========================================
+// 🛒 4. 購物車
+// ==========================================
+function cartTotal() { return cart.reduce((s, c) => s + c.unitPrice * c.quantity, 0); }
+function cartCount() { return cart.reduce((s, c) => s + c.quantity, 0); }
+
+function updateCartBar() {
+  $("barTotal").textContent = "$" + cartTotal();
+  $("barCount").textContent = cartCount() + " 杯";
+  $("cartBar").classList.toggle("show", cart.length > 0);
+}
+
+// 顧客資料暫存（切換畫面時不會消失）
+const customer = { customerName: "", phone: "", customerEmail: "" };
+
+function renderCart() {
+  $("cartFoot").hidden = false;
+  $("submitMsg").style.display = "none";
+  if (cart.length === 0) {
+    $("cartBody").innerHTML = `<div class="state">購物車是空的</div>`;
+    $("cartFoot").hidden = true;
+    return;
+  }
+  $("cartBody").innerHTML = `
+    ${cart.map((c, i) => `
+      <div class="line">
+        <div class="line-info">
+          <div class="line-name">${esc(c.itemName)}</div>
+          <div class="line-opt">${esc(c.size)}・${esc(c.sugarLevel)}・單價 $${c.unitPrice}</div>
+        </div>
+        <div class="qty">
+          <button type="button" data-act="minus" data-i="${i}" aria-label="減少">−</button>
+          <output>${c.quantity}</output>
+          <button type="button" data-act="plus" data-i="${i}" aria-label="增加">+</button>
+        </div>
+        <div class="line-price">$${c.unitPrice * c.quantity}</div>
+      </div>`).join("")}
+    <div class="total-row"><span>合計（${cartCount()} 杯）</span><span>$${cartTotal()}</span></div>
+
+    <div class="form">
+      <div class="field" id="f-name">
+        <label for="customerName">訂購人姓名</label>
+        <input id="customerName" autocomplete="name" value="${esc(customer.customerName)}">
+        <div class="err">請填寫姓名</div>
+      </div>
+      <div class="field" id="f-phone">
+        <label for="phone">聯絡電話</label>
+        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0912345678" value="${esc(customer.phone)}">
+        <div class="err">請填寫正確的電話號碼</div>
+      </div>
+      <div class="field" id="f-email">
+        <label for="customerEmail">Email <small>（選填，填寫會收到訂單確認信）</small></label>
+        <input id="customerEmail" type="email" inputmode="email" autocomplete="email" value="${esc(customer.customerEmail)}">
+        <div class="err">Email 格式不正確</div>
+      </div>
+    </div>`;
+
+  // 數量加減（減到 0 就移除）
+  $("cartBody").querySelectorAll("[data-act]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const item = cart[b.dataset.i];
+      item.quantity += b.dataset.act === "plus" ? 1 : -1;
+      if (item.quantity <= 0) cart.splice(b.dataset.i, 1);
+      updateCartBar();
+      renderCart();
+    });
+  });
+  ["customerName", "phone", "customerEmail"].forEach((k) => {
+    $(k).addEventListener("input", (e) => {
+      customer[k] = e.target.value;
+      e.target.closest(".field").classList.remove("invalid"); // 開始修改就先拿掉錯誤提示
+    });
+  });
+}
+
+$("openCart").addEventListener("click", () => { renderCart(); openOverlay("cartOverlay"); });
+
+// ==========================================
+// 📤 5. 送出訂單（POST）
+// ==========================================
+function validate() {
+  const name = customer.customerName.trim();
+  const phone = customer.phone.replace(/[\s-]/g, "");
+  const email = customer.customerEmail.trim();
+  const checks = [
+    ["f-name", name.length > 0],
+    ["f-phone", /^0\d{8,9}$/.test(phone)],
+    ["f-email", email === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)],
+  ];
+  checks.forEach(([id, ok]) => $(id).classList.toggle("invalid", !ok));
+  const firstBad = checks.find(([, ok]) => !ok);
+  if (firstBad) { $(firstBad[0]).querySelector("input").focus(); return null; }
+  return { customerName: name, phone, customerEmail: email };
+}
+
+$("submitOrder").addEventListener("click", async () => {
+  const info = validate();
+  if (!info) return;
+
+  const btn = $("submitOrder");
+  btn.disabled = true;
+  btn.textContent = "送出中…";
+  $("submitMsg").style.display = "none";
+
+  // 送給 doPost 的資料格式（欄位名稱需與 Apps Script 一致）
+  const payload = {
+    ...info,
+    cart: cart.map(({ itemName, size, sugarLevel, unitPrice, quantity }) =>
+      ({ itemName, size, sugarLevel, unitPrice, quantity })),
+  };
+
+  try {
+    // 用 text/plain 送出，可以避開瀏覽器的 CORS 預檢，Apps Script 照樣能讀到內容
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.status !== "success") throw new Error(data.message || "訂單寫入失敗");
+    showDone(data.orderId, info);
+  } catch (err) {
+    console.error(err);
+    $("submitMsg").textContent = "訂單送出失敗，請稍後再試，或直接致電店家。";
+    $("submitMsg").style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "送出訂單";
+  }
+});
+
+function showDone(orderId, info) {
+  const total = cartTotal();
+  const count = cartCount();
+  cart = [];
+  updateCartBar();
+  $("cartFoot").hidden = true;
+  $("cartBody").innerHTML = `
+    <div class="done">
+      <div class="check"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <h2>訂單已送出</h2>
+      <p class="thanks">感謝訂購，立刻為您製作</p>
+      <div class="order-no">${esc(orderId)}</div>
+      <p>共 ${count} 杯・合計 $${total}</p>
+      <p>${info.customerEmail ? "確認信已寄到 " + esc(info.customerEmail) : "取餐時請告知訂單編號"}</p>
+      <div class="done-actions">
+        <button class="btn-ghost" id="btnContinue">繼續點餐</button>
+        <button class="btn-primary" id="btnFinish">結束點餐</button>
+      </div>
+    </div>`;
+  $("btnContinue").addEventListener("click", () => closeOverlay("cartOverlay"));
+  $("btnFinish").addEventListener("click", finishOrdering);
+}
+
+// 結束點餐：先嘗試關閉分頁；瀏覽器不允許時，改顯示結束畫面
+function finishOrdering() {
+  closeOverlay("cartOverlay");
+  customer.customerName = customer.phone = customer.customerEmail = ""; // 清除這次的顧客資料
+  window.close();
+  $("tabs").hidden = true;
+  $("cartBar").hidden = true;
+  document.querySelector("header").hidden = true;
+  $("menu").innerHTML = `
+    <div class="goodbye">
+      <h2>感謝您的光臨</h2>
+      <p>飲品製作中，請留意取餐通知。<br>現在可以關閉這個頁面了。</p>
+      <button class="btn-ghost" onclick="location.reload()">重新點餐</button>
+    </div>`;
+  window.scrollTo(0, 0);
+}
+
+// ==========================================
+// 🪟 視窗開關
+// ==========================================
+function openOverlay(id) { $(id).classList.add("open"); document.body.style.overflow = "hidden"; }
+function closeOverlay(id) { $(id).classList.remove("open"); document.body.style.overflow = ""; }
+
+document.querySelectorAll("[data-close]").forEach((b) =>
+  b.addEventListener("click", () => closeOverlay(b.dataset.close)));
+document.querySelectorAll(".overlay").forEach((o) =>
+  o.addEventListener("click", (e) => { if (e.target === o) closeOverlay(o.id); }));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach((o) => closeOverlay(o.id));
+});
+
+// 開始：讀取菜單
+loadProducts();
+</script>
+</body>
+</html>
